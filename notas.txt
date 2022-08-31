@@ -1,0 +1,60 @@
+El Bot se encuentra en:
+
+Sub-Dominio: 
+
+Nuevo usuario al grupo
+{
+  "message_id":154,
+  "from":
+  {
+    "id":5512461457,
+    "is_bot":false,
+    "first_name":
+    "Tato"
+  },
+  "chat":
+  {
+    "id":-1001724166733,
+    "title":"Grupo Test",
+    "type":"supergroup"
+  },
+  "date":1661549240,
+  "new_chat_participant":
+  {
+    "id":5512461457,
+    "is_bot":false,
+    "first_name":"Tato"
+  },
+  "new_chat_member":
+  {
+    "id":5512461457,
+    "is_bot":false,
+    "first_name":"Tato"
+  },
+  "new_chat_members":[
+  {
+    "id":5512461457,
+    "is_bot":false,
+    "first_name":"Tato"
+  }]
+}
+
+Un mensaje de usuario
+{
+  "message_id":155,
+  "from":
+  {
+    "id":5512461457,
+    "is_bot":false,
+    "first_name":
+    "Tato"
+  },
+  "chat":
+  {
+    "id":-1001724166733,
+    "title":"Grupo Test",
+    "type":"supergroup"
+  },
+  "date":1661549990,
+  "text":"Hola"
+}
