@@ -45,17 +45,34 @@ bot.use(stage.middleware())
 const getNumber = new Scene('getNumber')
 stage.register(getNumber)
 
+// Esta función verifica de que el Miembro del grupo sea el que adicionó el Bot al grupo
+const verifyBotOwner = async (_idChat, _idMember) => {
+  try {
+    let dbData = await pool.query(
+      'SELECT * FROM supergroup ' +
+      'WHERE (user_id = ' + _idMember + ') AND ' + 
+            '(chat_id = ' + _idChat + ')');
+    return (dbData.length === 1);
+  } catch (err) {
+    sendError(err, ctx)
+  }
+}
+
 // Comando o Entrada al bot con Start
 bot.start(async (ctx) => {
   try {
-    // console.log(ctx.chat);
-
-    var isBotFrom = ctx.message.from.is_bot;
+    
+    // El comando start solo será ejecutado por un usuario
+    // Los Bots no podrán ejecutarlo
+    var isBotFrom = ctx.message.from.is_bot;    
     if (!isBotFrom) {
-      //Está iniciandolo una persona
+      //Si lo inicia un usuario debe verificar si es desde un grupo o un chat privado
       var typeChat = ctx.message.chat.type;
       if (typeChat == 'private') {
-        //Solo se ejecuta en privado
+        // Si el comando es ejecutado desde un chat privado se adiciona a la tabla private 
+        // de la base de datos los datos del usuario y así se llevará un registro de las 
+        // personas que hacen uso del bot. Esto es con el proposito de que cada usuario 
+        // haga uso de una configuración personal, no está implementado aún
         const id = 0;
         const user_id = ctx.from.id;
         const user_name = ctx.from.username;
@@ -73,11 +90,14 @@ bot.start(async (ctx) => {
           await pool.query('INSERT INTO private set ?', [newUser]);
         }
 
+        // Aqui se muestra la interfaz de selección del idioma para el Bot
+        // Hay un botón para Ingles y otro para Español y según la se selección se ejecuta un action
+        // Aún no se guarda en la Base de Datos, se debe implementar con otras opciones
         ctx.reply(
           'Hello, select the language.',
           Extra
           .markup(Markup.inlineKeyboard([
-            [Markup.callbackButton('English', 'langen'), Markup.callbackButton('Español', 'langes')]
+            [Markup.callbackButton('🏴󠁧󠁢󠁥󠁮󠁧󠁿 English', 'langen'), Markup.callbackButton('🇪🇸 Español', 'langes')]
           ]))
           .webPreview(false)
         )
@@ -88,6 +108,7 @@ bot.start(async (ctx) => {
   }
 })
 
+// Aqui se muestra la interfaz de selección del idioma para el Bot en caso de presionar Back
 bot.action('selectlang', async (ctx) => {
   try {
     ctx.answerCbQuery()
@@ -105,11 +126,13 @@ bot.action('selectlang', async (ctx) => {
   }
 })
 
+// Interfaz informando el idioma seleccionado en caso de ingles
 bot.action('langen', async (ctx) => {
   try {
+    // setLocale cambia el idioma de uso y es mostrado mediante la fucion i18n
     i18n.setLocale('en');
     ctx.answerCbQuery()
-      
+    
     ctx.editMessageText(
       i18n.__('Hola, usted ha seleccionado el idioma Español.') + 
       '\n' + i18n.__('Presione continuar para ver las opciones del Bot.'),
@@ -125,8 +148,10 @@ bot.action('langen', async (ctx) => {
   }
 })
 
+// Interfaz informando el idioma seleccionado en caso de español
 bot.action('langes', async (ctx) => {
   try {
+    // setLocale cambia el idioma de uso y es mostrado mediante la fucion i18n
     i18n.setLocale('es');
     ctx.answerCbQuery()
       
@@ -145,6 +170,10 @@ bot.action('langes', async (ctx) => {
   }
 })
 
+// Interfaz principal para interactuar con el Bot
+// Aqui se mostrarán las acciones que realizará el bot
+// Hay que implementarlas
+//En eset caso solo muestra 2 botones para acceder a un Canal y un Grupo
 bot.action('main', async (ctx) => {
   try {
     ctx.answerCbQuery()
@@ -162,9 +191,19 @@ bot.action('main', async (ctx) => {
   }
 })
 
-bot.command('quit', (ctx) => {
+// El comando quit es para que el bot salga solo de un grupo.
+// El usuario que lo puede ejecutar debe ser el mismo que lo adicionó.
+bot.command('quit', async (ctx) => {
   try {
-    ctx.telegram.leaveChat(ctx.message.chat.id);
+    var idChat = ctx.message.chat.id;
+    var idMember = ctx.message.from.id;
+    memberBotOwner = await verifyBotOwner(idChat, idMember);
+    // Si el miembro es el que adicionó al Bot el Bot sale del grupo
+    if (memberBotOwner) {
+      ctx.telegram.leaveChat(idChat);
+    } else {
+      ctx.telegram.sendMessage(idChat, i18n.__('Usted no tiene permiso para utilizar este comando.'));
+    }
   } catch (err) {
     sendError(err, ctx)
   }
@@ -181,20 +220,19 @@ bot.command('quit', (ctx) => {
 // Mensajes de Bienvenida y de Salida del Grupo    
 bot.on('message', async (ctx) => {
   try {
-    // console.log(ctx.message);
-    // Usuario nuevo en el grupo
+    // Aqui se verifica si el mensaje es de un nuevo miembro
     if (ctx.message.new_chat_members != undefined){    
       var idChat = ctx.message.chat.id;
       var idNewMember = ctx.message.new_chat_member.id;
       var userNameNewMember = ctx.message.new_chat_member.username;
       var isBotNewMember = ctx.message.new_chat_member.is_bot;
+      // Si el nuevo miembro es un Bot hay que revisar si es este Bot u otro diferente
       if (isBotNewMember) {
-        //Es un Bot
-        // ctx.reply('Es un Bot...');
+        // Revisamos de que sea nuestro Bot
         if (userNameNewMember == data_bot[select_data_bot].name) {
-          //Es nuestro bot
-
-          // console.log(ctx.message);
+          // Si es nuestro bot se adiciona a la tabla supergroup de la base de datos
+          // los datos del usuario y del grupo y así se llevará un registro de la 
+          // persona que adicionó el bot al grupo; así se pueden limitar operaciones
           const id = 0;
           const user_id = ctx.from.id;
           const user_name = ctx.from.username;
@@ -218,7 +256,9 @@ bot.on('message', async (ctx) => {
 
           ctx.telegram.sendMessage(idChat, i18n.__('Muchas gracias por agregarme a este Grupo.'));
         } else {
-          //No es nuestro Bot
+          // Si no es nuestro bot hay que eliminarlo del grupo
+          // Para esto se verifica primero que nuestro Bot tenga permisos para expulsar
+          // y luego se expulsa al usuario. Si no se tiene permiso para expulsar se lanza un mensaje
           
           ctx.telegram.getChatMember(idChat, ctx.botInfo.id).then(function(data) {
             if ((data.status == "creator") || (data.status == "administrator")){
@@ -233,17 +273,19 @@ bot.on('message', async (ctx) => {
           
         }
       } else {
-        //No es un Bot
+        // En este caso el nuevo miembro no es un Bot sino una persona
+        // Lanzamos un mensaje de bienvenida y otras funcionalidades (esto ultimo no está implementado)
         var nameNewMember = ctx.message.new_chat_member.first_name;        
         ctx.reply(i18n.__('Hello') + ': ' + nameNewMember + ',\n' + i18n.__('Bienvenido a la comunidad'));
       }
     }
     // Usuario abandona el grupo
     else if (ctx.message.left_chat_member != undefined){
-      
+      // Aqui se pueden realizar acciones cuando un miembro abandona el grupo
     }
+    // EL mensaje es un texto normal
     else if (ctx.message.text != undefined) {
-      
+      // Aqui se pueden realizar acciones cuando un miembro escribe un mensaje normal dentro del grupo
     }
   } catch (err) {
     sendError(err, ctx)
@@ -257,11 +299,10 @@ async function sendError(err, ctx) {
       return setTimeout(() => {
         ctx.answerCbQuery()
         ctx.editMessageText(
-          text.hello + ctx.from.id,
+          'Hello, select the language.',
           Extra
           .markup(Markup.inlineKeyboard([
-            [Markup.urlButton('📨 Share link', 't.me/share/url?url=' + urlencode(text.invite_es + ctx.from.id))],
-            [Markup.callbackButton('💵 Balance', 'balance'), Markup.callbackButton('📱 My number', 'number')],
+            [Markup.callbackButton('🏴󠁧󠁢󠁥󠁮󠁧󠁿 English', 'langen'), Markup.callbackButton('🇪🇸 Español', 'langes')]
           ]))
           .webPreview(false)
         )

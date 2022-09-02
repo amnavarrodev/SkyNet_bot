@@ -1,3 +1,5 @@
+// Auxiliar para desplegar en las pruebas con diferentes Bots
+// Solo se selecciona el Bot que se utilizará para el despliegue
 const select_data_bot = 0;
 const data_bot = 
   [
